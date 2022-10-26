@@ -4,19 +4,6 @@ import (
 	"context"
 )
 
-/**
-1. 初始化
-Default(WithUserName(userName), WithUserEmail(userEmail))
-2. 使用
-由于1中初始化了Default,因此可以直接使用Default()
-repo,err := Default().CloneToMemory(context.Background(), "git@bitbucket.org:funplus/sandwich-sample-conf.git")
-if err != nil {
-	return err
-}
-// checkout master
-err = repo.CheckoutBranch(context.Background(), "")
-**/
-
 type Repository interface {
 	// UserName 获取.git/config的user.name
 	UserName() string
