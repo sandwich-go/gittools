@@ -49,7 +49,7 @@ func main() {
         return
     }
 
-    // push and commit
+    // commit and push  
     commitMsg := "commit by git tools"
     err = repo.Commit(context.Background(), commitMsg)
     if err != nil {
