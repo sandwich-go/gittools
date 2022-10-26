@@ -26,7 +26,8 @@ func main() {
 	
     // 由于初始化了Default,因此可以直接使用Default()函数
     url := "git@github.com:sandwich-go/gittools.git"
-    repo, err := gittools.Default().Clone(context.Background(), url, "")
+    dir := "" // 目录为空，则会clone到临时目录中
+    repo, err := gittools.Default().Clone(context.Background(), url, dir)
     if err != nil {
         fmt.Println(err)
         return
