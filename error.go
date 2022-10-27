@@ -31,3 +31,10 @@ var (
 	ErrGitModulesSymlink         = git.ErrGitModulesSymlink
 	ErrNonFastForwardUpdate      = git.ErrNonFastForwardUpdate
 )
+
+func checkErr(err error) error {
+	if err == git.NoErrAlreadyUpToDate || err == git.ErrNonFastForwardUpdate {
+		err = nil
+	}
+	return err
+}

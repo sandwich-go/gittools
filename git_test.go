@@ -12,12 +12,16 @@ func TestGit(t *testing.T) {
 	Convey("git ", t, func() {
 		userName := "botman"
 		g := Default(WithUserName(userName))
-		r, err := g.CloneToMemory(context.Background(), "git@github.com:sandwich-go/redisson.git")
+		var r Repository
+		var err error
+		r, err = g.CloneToMemory(context.Background(), "git@github.com:sandwich-go/redisson.git")
 		So(err, ShouldBeNil)
 		So(r, ShouldNotBeNil)
 		So(r.UserName(), ShouldEqual, userName)
 
 		err = r.CheckoutBranch(context.Background(), "")
+		So(err, ShouldBeNil)
+		err = r.Fetch(context.Background())
 		So(err, ShouldBeNil)
 		err = r.CheckoutBranch(context.Background(), "version/1.0")
 		So(err, ShouldBeNil)
@@ -31,6 +35,8 @@ func TestGit(t *testing.T) {
 		err = r.CheckoutTag(context.Background(), "v1.1.16")
 		So(err, ShouldBeNil)
 
+		var b Branch
+		newBranchName := "new_branch"
 		fileName := "a.txt"
 		fileContent := []byte(fmt.Sprintf("%s write it!", time.Now().String()))
 		commitMsg := "commit by test git"
@@ -38,6 +44,8 @@ func TestGit(t *testing.T) {
 		r, err = g.Clone(context.Background(), "git@github.com:sandwich-go/go-redis-client-benchmark.git", "")
 		So(err, ShouldBeNil)
 		So(r, ShouldNotBeNil)
+		err = r.Fetch(context.Background())
+		So(err, ShouldBeNil)
 		err = r.Pull(context.Background())
 		So(err, ShouldBeNil)
 		err = r.Push(context.Background())
@@ -48,6 +56,35 @@ func TestGit(t *testing.T) {
 		So(err, ShouldBeNil)
 		err = r.Push(context.Background())
 		So(err, ShouldBeNil)
+		b, err = r.CreateBranch(context.Background(), newBranchName, "")
+		So(err, ShouldBeNil)
+		So(b, ShouldNotBeNil)
+		err = b.Push(context.Background())
+		So(err, ShouldBeNil)
+		b, err = r.Branch(context.Background(), newBranchName)
+		So(err, ShouldBeNil)
+		So(b, ShouldNotBeNil)
+		err = b.Delete(context.Background())
+		So(err, ShouldBeNil)
+		err = b.Push(context.Background())
+		So(err, ShouldBeNil)
+
+		var tg Tag
+		newTagName := "new_tag"
+		newTagComment := "this is comment"
+		tg, err = r.CreateTag(context.Background(), newTagName, newTagComment, "")
+		So(err, ShouldBeNil)
+		So(tg, ShouldNotBeNil)
+		err = tg.Push(context.Background())
+		So(err, ShouldBeNil)
+		tg, err = r.Tag(context.Background(), newTagName)
+		So(err, ShouldBeNil)
+		So(tg, ShouldNotBeNil)
+		err = tg.Delete(context.Background())
+		So(err, ShouldBeNil)
+		err = tg.Push(context.Background())
+		So(err, ShouldBeNil)
+
 		cloneDir := r.Root()
 		t.Log("clone to dir:", cloneDir)
 		err = r.RemoveAll()
