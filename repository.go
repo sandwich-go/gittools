@@ -1,6 +1,7 @@
 package gittools
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"github.com/dastoori/higgs"
@@ -8,8 +9,12 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"io"
+	"io/ioutil"
 	"os"
+	"strings"
 )
 
 type repository struct {
@@ -22,7 +27,6 @@ type repository struct {
 func newRepository(h *cloner, r *git.Repository) Repository {
 	repo := &repository{h: h, Repository: r}
 	_ = repo.updateHeadHash()
-	repo.updateCurrentRefName(plumbing.Master)
 	return repo
 }
 
@@ -31,9 +35,22 @@ func (r *repository) cleanWorkTree() (*git.Worktree, error) {
 	if err != nil {
 		return nil, err
 	}
+	var is bool
+	is, err = r.IsClean()
+	if !is {
+		return nil, fmt.Errorf("current worktree not clean")
+	}
+	return worktree, nil
+}
+
+func (r *repository) IsClean() (bool, error) {
+	worktree, err := r.Repository.Worktree()
+	if err != nil {
+		return false, err
+	}
 	status, err0 := worktree.Status()
 	if err0 != nil {
-		return nil, err0
+		return false, err0
 	}
 	for k, v := range status {
 		if v.Worktree != git.Untracked && v.Staging != git.Untracked {
@@ -43,10 +60,7 @@ func (r *repository) cleanWorkTree() (*git.Worktree, error) {
 			delete(status, k)
 		}
 	}
-	if !status.IsClean() {
-		return nil, fmt.Errorf("current worktree not clean")
-	}
-	return worktree, nil
+	return status.IsClean(), nil
 }
 
 func (r *repository) UserName() string {
@@ -91,11 +105,8 @@ func (r *repository) updateHeadHash() error {
 		return err
 	}
 	r.headHash = head.Hash()
+	r.currentRefName = head.Name()
 	return nil
-}
-
-func (r *repository) updateCurrentRefName(ref plumbing.ReferenceName) {
-	r.currentRefName = ref
 }
 
 func (r *repository) checkout(ref plumbing.ReferenceName) (err error) {
@@ -110,9 +121,7 @@ func (r *repository) checkout(ref plumbing.ReferenceName) (err error) {
 	}); err != nil {
 		return
 	}
-	if err = r.updateHeadHash(); err == nil {
-		r.updateCurrentRefName(ref)
-	}
+	err = r.updateHeadHash()
 	return
 }
 
@@ -133,6 +142,104 @@ func (r *repository) Pull(ctx context.Context) (err error) {
 	})
 	if err = checkErr(err); err == nil {
 		err = r.updateHeadHash()
+	}
+	return
+}
+
+const (
+	ignoreFile    = ".gitignore"
+	commentPrefix = "#"
+)
+
+func (r *repository) isIgnore(_ context.Context, fileOrDir []string, isDir bool) (is bool, err error) {
+	defer func() { r.print(err, fmt.Sprintf("is ignore fileOrDir: %v, isDir: %v", fileOrDir, isDir)) }()
+	var workTree *git.Worktree
+	if workTree, err = r.Worktree(); err != nil {
+		return
+	}
+	var ps, ps1 []gitignore.Pattern
+	ps, _ = gitignore.LoadGlobalPatterns(workTree.Filesystem)
+	ps1, _ = gitignore.LoadSystemPatterns(workTree.Filesystem)
+	ps = append(ps, ps1...)
+	ps1, _ = gitignore.ReadPatterns(workTree.Filesystem, nil)
+	ps = append(ps, ps1...)
+
+	for _, i := range ps {
+		if i.Match(fileOrDir, isDir) == gitignore.Exclude {
+			return true, nil
+		}
+	}
+	return false, err
+}
+
+func (r *repository) IsIgnoreDir(ctx context.Context, dirs ...string) (bool, error) {
+	return r.isIgnore(ctx, dirs, true)
+}
+
+func (r *repository) IsIgnoreFile(ctx context.Context, files ...string) (bool, error) {
+	return r.isIgnore(ctx, files, false)
+}
+
+func (r *repository) Ignore(_ context.Context, patterns ...string) (err error) {
+	defer func() { r.print(err, fmt.Sprintf("ignore pattern: %v", patterns)) }()
+	var workTree *git.Worktree
+	if workTree, err = r.Worktree(); err != nil {
+		return err
+	}
+	var file billy.File
+	var content = make(map[string]struct{})
+	var bs []byte
+
+	_, err = workTree.Filesystem.Stat(ignoreFile)
+	if err == nil {
+		file, err = workTree.Filesystem.OpenFile(ignoreFile, os.O_RDONLY, 0666)
+		if err == nil {
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				s := scanner.Text()
+				if !strings.HasPrefix(s, commentPrefix) && len(strings.TrimSpace(s)) > 0 {
+					content[s] = struct{}{}
+				}
+			}
+			if _, err = file.Seek(0, io.SeekStart); err == nil {
+				bs, err = ioutil.ReadAll(file)
+			}
+		}
+		if file != nil {
+			_ = file.Close()
+		}
+	}
+	if err != nil {
+		return
+	}
+	file, err = workTree.Filesystem.Create(ignoreFile)
+	if err != nil {
+		return
+	}
+	var cnt = string(bs)
+	for _, pattern := range patterns {
+		if _, ok := content[pattern]; !ok {
+			cnt += "\n"
+			cnt += pattern
+		}
+	}
+	cnt += "\n"
+	_, err = file.Write([]byte(cnt))
+	_ = file.Close()
+	return
+}
+
+func (r *repository) Add(_ context.Context, fileOrDirs ...string) (err error) {
+	defer func() { r.print(err, fmt.Sprintf("add file/dir: %v", fileOrDirs)) }()
+	var workTree *git.Worktree
+	if workTree, err = r.Worktree(); err != nil {
+		return err
+	}
+	for _, f := range fileOrDirs {
+		_, err = workTree.Add(f)
+		if err != nil {
+			break
+		}
 	}
 	return
 }

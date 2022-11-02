@@ -8,7 +8,6 @@ import (
 
 type Logger interface {
 	Println(v ...interface{})
-	Fatalln(v ...interface{})
 	Writer() io.Writer
 }
 

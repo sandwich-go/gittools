@@ -29,6 +29,9 @@ type Repository interface {
 	// RemoveAll 若Repository是克隆在本地，删除克隆的根目录
 	RemoveAll() error
 
+	// IsClean Repository是否有未提交的文件
+	IsClean() (bool, error)
+
 	// Pull git pull
 	Pull(ctx context.Context) error
 	// Push git push
@@ -36,6 +39,14 @@ type Repository interface {
 	// Commit git commit -m ""
 	Commit(ctx context.Context, comment string) error
 
+	// IsIgnoreDir 是否是忽略的目录
+	IsIgnoreDir(ctx context.Context, dirs ...string) (bool, error)
+	// IsIgnoreFile 是否是忽略的文件
+	IsIgnoreFile(ctx context.Context, files ...string) (bool, error)
+	// Ignore 忽略文件或目录
+	Ignore(ctx context.Context, patterns ...string) error
+	// Add 添加文件或目录
+	Add(ctx context.Context, fileOrDirs ...string) error
 	// RewriteFile 重写文件内容，不存在则创建
 	RewriteFile(ctx context.Context, file string, data []byte) error
 
@@ -66,10 +77,16 @@ type Repository interface {
 }
 
 type Cloner interface {
+	// Open 获取指定路径下的Repository
+	Open(ctx context.Context, dir string) (Repository, error)
 	// Clone 克隆指定的url的Repository到本地dir目录，若dir为空，则为临时目录（临时目录可以通过Repository.Root()获取）
 	Clone(ctx context.Context, url, dir string) (Repository, error)
+	// CloneOnlyBranch 克隆指定的url指定的branch的Repository到本地dir目录，若dir为空，则为临时目录（临时目录可以通过Repository.Root()获取）
+	CloneOnlyBranch(ctx context.Context, url, dir, branch string) (Repository, error)
 	// CloneToMemory 克隆指定的url的Repository到缓存中
 	CloneToMemory(ctx context.Context, url string) (Repository, error)
+	// CloneOnlyBranchToMemory 克隆指定的url指定的branch的Repository到缓存中
+	CloneOnlyBranchToMemory(ctx context.Context, url, branch string) (Repository, error)
 	// ConfigInterface visitor + ApplyOption interface for Config
 	ConfigInterface
 }

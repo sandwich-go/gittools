@@ -40,7 +40,7 @@ func Default(opts ...ConfigOption) Cloner {
 
 func (h *cloner) print(err error, v ...interface{}) {
 	if err != nil {
-		h.GetLogger().Fatalln(append(append([]interface{}{logPrefix, failedLogFlag}, v...), "Error:", err)...)
+		h.GetLogger().Println(append(append([]interface{}{logPrefix, failedLogFlag}, v...), "Error:", err)...)
 	} else {
 		// 若最后一位是字符串，并且以','结尾，则移除','
 		// 例如:
@@ -106,7 +106,7 @@ func (h *cloner) getProgress() sideband.Progress {
 	return h.GetLogger().Writer()
 }
 
-func (h *cloner) clone(ctx context.Context, url, dir string) (Repository, error) {
+func (h *cloner) clone(ctx context.Context, url, dir, branch string) (Repository, error) {
 	publicKeys, err := h.auth()
 	if err != nil {
 		return nil, err
@@ -117,6 +117,10 @@ func (h *cloner) clone(ctx context.Context, url, dir string) (Repository, error)
 		Auth:     publicKeys,
 		Depth:    h.GetDepth(),
 		Progress: h.getProgress(),
+	}
+	if len(branch) > 0 {
+		opts.ReferenceName = getBranchReferenceName(branch)
+		//opts.SingleBranch = true
 	}
 	if len(dir) == 0 {
 		r, err = git.CloneContext(ctx, memory.NewStorage(), memfs.New(), opts)
@@ -133,22 +137,43 @@ func (h *cloner) clone(ctx context.Context, url, dir string) (Repository, error)
 }
 
 func (h *cloner) Clone(ctx context.Context, url, dir string) (Repository, error) {
+	return h.CloneOnlyBranch(ctx, url, dir, "")
+}
+
+func (h *cloner) CloneOnlyBranch(ctx context.Context, url, dir, branch string) (Repository, error) {
 	if len(dir) == 0 {
 		var err error
 		if dir, err = ioutil.TempDir(dir, ""); err != nil {
 			return nil, err
 		}
 	}
-	repo, err := h.clone(ctx, url, dir)
+	repo, err := h.clone(ctx, url, dir, branch)
 	if repo != nil {
 		dir = repo.Root()
 	}
-	h.print(err, fmt.Sprintf("clone to dir, url: %s, dir: %s", url, dir))
+	h.print(err, fmt.Sprintf("clone to dir, url: %s, dir: %s, branch: %s", url, dir, branch))
 	return repo, err
 }
 
 func (h *cloner) CloneToMemory(ctx context.Context, url string) (Repository, error) {
-	repo, err := h.clone(ctx, url, "")
-	h.print(err, fmt.Sprintf("clone to memory, url: %s", url))
+	return h.CloneOnlyBranchToMemory(ctx, url, "")
+}
+
+func (h *cloner) CloneOnlyBranchToMemory(ctx context.Context, url, branch string) (Repository, error) {
+	repo, err := h.clone(ctx, url, "", branch)
+	h.print(err, fmt.Sprintf("clone to memory, url: %s, branch: %s", url, branch))
 	return repo, err
+}
+
+func (h *cloner) Open(_ context.Context, dir string) (Repository, error) {
+	var err error
+	var r *git.Repository
+	r, err = git.PlainOpen(dir)
+	if err != nil {
+		return nil, err
+	}
+	if err = h.checkConfig(r); err != nil {
+		return nil, err
+	}
+	return newRepository(h, r), nil
 }
