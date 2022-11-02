@@ -26,10 +26,10 @@ var defaultCloner Cloner
 
 type cloner struct {
 	publicKeys *ssh.PublicKeys
-	spec       *Config
+	ConfigInterface
 }
 
-func New(opts ...ConfigOption) Cloner { return &cloner{spec: NewConfig(opts...)} }
+func New(opts ...ConfigOption) Cloner { return &cloner{ConfigInterface: NewConfig(opts...)} }
 
 func Default(opts ...ConfigOption) Cloner {
 	if defaultCloner == nil {
@@ -40,7 +40,7 @@ func Default(opts ...ConfigOption) Cloner {
 
 func (h *cloner) print(err error, v ...interface{}) {
 	if err != nil {
-		h.spec.Logger.Fatalln(append(append([]interface{}{logPrefix, failedLogFlag}, v...), "Error:", err)...)
+		h.GetLogger().Fatalln(append(append([]interface{}{logPrefix, failedLogFlag}, v...), "Error:", err)...)
 	} else {
 		// 若最后一位是字符串，并且以','结尾，则移除','
 		// 例如:
@@ -53,7 +53,7 @@ func (h *cloner) print(err error, v ...interface{}) {
 				v[l-1] = strings.TrimSuffix(s, ",")
 			}
 		}
-		h.spec.Logger.Println(v...)
+		h.GetLogger().Println(v...)
 	}
 }
 
@@ -64,13 +64,13 @@ func (h *cloner) auth() (*ssh.PublicKeys, error) {
 	var err error
 	var rsaPath string
 	defer func() { h.print(err, fmt.Sprintf("auth, path: %s", rsaPath)) }()
-	if !filepath.IsAbs(h.spec.GetRsaPath()) {
+	if !filepath.IsAbs(h.GetRsaPath()) {
 		var home string
 		if home, err = os.UserHomeDir(); err == nil {
-			rsaPath = filepath.Join(home, h.spec.GetRsaPath())
+			rsaPath = filepath.Join(home, h.GetRsaPath())
 		}
 	} else {
-		rsaPath = h.spec.GetRsaPath()
+		rsaPath = h.GetRsaPath()
 	}
 	if err != nil {
 		return nil, err
@@ -97,13 +97,13 @@ func (h *cloner) checkConfig(r *git.Repository) error {
 	if c == nil {
 		c = config.NewConfig()
 	}
-	c.User.Name = h.spec.GetUserName()
-	c.User.Email = h.spec.GetUserEmail()
+	c.User.Name = h.GetUserName()
+	c.User.Email = h.GetUserEmail()
 	return r.SetConfig(c)
 }
 
 func (h *cloner) getProgress() sideband.Progress {
-	return h.spec.GetLogger().Writer()
+	return h.GetLogger().Writer()
 }
 
 func (h *cloner) clone(ctx context.Context, url, dir string) (Repository, error) {
@@ -115,7 +115,7 @@ func (h *cloner) clone(ctx context.Context, url, dir string) (Repository, error)
 	var opts = &git.CloneOptions{
 		URL:      url,
 		Auth:     publicKeys,
-		Depth:    h.spec.GetDepth(),
+		Depth:    h.GetDepth(),
 		Progress: h.getProgress(),
 	}
 	if len(dir) == 0 {

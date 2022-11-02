@@ -127,7 +127,7 @@ func (r *repository) Pull(ctx context.Context) (err error) {
 		return err
 	}
 	err = workTree.PullContext(ctx, &git.PullOptions{
-		Depth:    r.h.spec.GetDepth(),
+		Depth:    r.h.GetDepth(),
 		Auth:     publicKeys,
 		Progress: r.h.getProgress(),
 	})
@@ -356,7 +356,7 @@ func (r *repository) Fetch(ctx context.Context) (err error) {
 	err = checkErr(r.Repository.FetchContext(ctx, &git.FetchOptions{
 		Auth:     publicKeys,
 		Progress: r.h.getProgress(),
-		Depth:    r.h.spec.GetDepth(),
+		Depth:    r.h.GetDepth(),
 	}))
 	return
 }

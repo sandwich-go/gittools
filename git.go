@@ -70,4 +70,6 @@ type Cloner interface {
 	Clone(ctx context.Context, url, dir string) (Repository, error)
 	// CloneToMemory 克隆指定的url的Repository到缓存中
 	CloneToMemory(ctx context.Context, url string) (Repository, error)
+	// ConfigInterface visitor + ApplyOption interface for Config
+	ConfigInterface
 }
