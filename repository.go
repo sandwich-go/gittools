@@ -244,6 +244,20 @@ func (r *repository) Add(_ context.Context, fileOrDirs ...string) (err error) {
 	return
 }
 
+func (r *repository) AddAll(_ context.Context, excludes ...string) (err error) {
+	defer func() { r.print(err, fmt.Sprintf("add all, excludes: %v", excludes)) }()
+	var workTree *git.Worktree
+	if workTree, err = r.Worktree(); err != nil {
+		return err
+	}
+	workTree.Excludes = make([]gitignore.Pattern, 0, len(excludes))
+	for _, v := range excludes {
+		workTree.Excludes = append(workTree.Excludes, gitignore.ParsePattern(v, nil))
+	}
+	err = workTree.AddWithOptions(&git.AddOptions{All: true})
+	return
+}
+
 func (r *repository) RewriteFile(_ context.Context, file string, data []byte) (err error) {
 	defer func() { r.print(err, "rewrite file,") }()
 	var workTree *git.Worktree
