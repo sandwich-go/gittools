@@ -3,7 +3,6 @@ package gittools
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
@@ -15,10 +14,6 @@ func TestGit(t *testing.T) {
 		g := Default(WithUserName(userName))
 		var r Repository
 		var err error
-
-		var a = gitignore.ParsePattern("*.pyc", nil)
-		fmt.Println(a.Match([]string{"gen/meta/migration/__pycache__/aaaaa.pyc"}, false))
-		return
 		r, err = g.CloneToMemory(context.Background(), "git@github.com:sandwich-go/redisson.git")
 		So(err, ShouldBeNil)
 		So(r, ShouldNotBeNil)
