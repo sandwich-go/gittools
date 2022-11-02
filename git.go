@@ -47,6 +47,7 @@ type Repository interface {
 	Ignore(ctx context.Context, patterns ...string) error
 	// Add 添加文件或目录
 	Add(ctx context.Context, fileOrDirs ...string) error
+	// AddAll 添加根目录下所有文件或目录
 	AddAll(ctx context.Context, excludes ...string) error
 	// RewriteFile 重写文件内容，不存在则创建
 	RewriteFile(ctx context.Context, file string, data []byte) error
