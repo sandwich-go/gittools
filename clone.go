@@ -115,12 +115,12 @@ func (h *cloner) clone(ctx context.Context, url, dir, branch string) (Repository
 	var opts = &git.CloneOptions{
 		URL:      url,
 		Auth:     publicKeys,
-		Depth:    h.GetDepth(),
 		Progress: h.getProgress(),
 	}
 	if len(branch) > 0 {
 		opts.ReferenceName = getBranchReferenceName(branch)
-		//opts.SingleBranch = true
+	} else {
+		opts.Depth = h.GetDepth()
 	}
 	if len(dir) == 0 {
 		r, err = git.CloneContext(ctx, memory.NewStorage(), memfs.New(), opts)

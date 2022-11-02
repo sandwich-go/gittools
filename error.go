@@ -37,7 +37,7 @@ var (
 )
 
 func checkErr(err error) error {
-	if err == NoErrAlreadyUpToDate || err == ErrNonFastForwardUpdate || err == ErrObjectNotFound {
+	if err == NoErrAlreadyUpToDate || err == ErrNonFastForwardUpdate {
 		err = nil
 	}
 	return err
